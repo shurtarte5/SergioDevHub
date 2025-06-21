@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.sergio.sergiodevhub.domain.model.Movie
@@ -18,7 +19,8 @@ import com.sergio.sergiodevhub.presentation.viewmodel.MovieUiState
 import kotlinx.coroutines.launch
 
 @Composable
-fun MovieListScreen(movieViewModel: MovieViewModel = viewModel()) {
+fun MovieListScreen(movieViewModel: MovieViewModel = hiltViewModel())
+ {
     val state by movieViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
