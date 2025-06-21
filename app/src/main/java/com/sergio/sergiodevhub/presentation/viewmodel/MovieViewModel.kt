@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.sergio.sergiodevhub.core.util.Resource
 import com.sergio.sergiodevhub.domain.model.Movie
 import com.sergio.sergiodevhub.domain.usecase.GetPopularMoviesUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class MovieUiState(
     val isLoading: Boolean = false,
@@ -16,7 +18,8 @@ data class MovieUiState(
     val error: String? = null
 )
 
-class MovieViewModel(
+@HiltViewModel
+class MovieViewModel @Inject constructor(
     private val getPopularMoviesUseCase: GetPopularMoviesUseCase
 ) : ViewModel() {
 
