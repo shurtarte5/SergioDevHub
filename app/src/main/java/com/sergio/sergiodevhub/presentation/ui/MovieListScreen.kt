@@ -3,6 +3,7 @@ package com.sergio.sergiodevhub.presentation.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,8 +20,7 @@ import com.sergio.sergiodevhub.presentation.viewmodel.MovieUiState
 import kotlinx.coroutines.launch
 
 @Composable
-fun MovieListScreen(movieViewModel: MovieViewModel = hiltViewModel())
- {
+fun MovieListScreen(movieViewModel: MovieViewModel = hiltViewModel()) {
     val state by movieViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -42,18 +42,34 @@ fun MovieListScreen(movieViewModel: MovieViewModel = hiltViewModel())
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(padding)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
             when {
                 state.isLoading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
 
                 state.movies.isNotEmpty() -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                        items(state.movies) { movie ->
-                            MovieItem(movie)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Most Popular",
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(state.movies) { movie ->
+                                MoviePosterItem(movie)
+                            }
                         }
                     }
                 }
@@ -61,6 +77,9 @@ fun MovieListScreen(movieViewModel: MovieViewModel = hiltViewModel())
         }
     }
 }
+
+
+
 
 
 @Composable
@@ -93,6 +112,25 @@ fun MovieItem(movie: Movie) {
         }
     }
 }
+
+@Composable
+fun MoviePosterItem(movie: Movie) {
+    Card(
+        modifier = Modifier
+            .width(140.dp)
+            .height(220.dp),
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(6.dp)
+    ) {
+        Image(
+            painter = rememberAsyncImagePainter(movie.posterUrl),
+            contentDescription = movie.title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
 
 
 
