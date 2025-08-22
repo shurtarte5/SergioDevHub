@@ -4,15 +4,18 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
@@ -29,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,6 +52,7 @@ fun MovieListScreen(movieViewModel: MovieViewModel = hiltViewModel()) {
     val state by movieViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val gridState = rememberLazyGridState()
 
     LaunchedEffect(state.error) {
         state.error?.let { message ->
@@ -57,9 +62,23 @@ fun MovieListScreen(movieViewModel: MovieViewModel = hiltViewModel()) {
                     actionLabel = "Retry"
                 )
                 if (result == SnackbarResult.ActionPerformed) {
-                    movieViewModel.fetchMovies()
+                    movieViewModel.retry()
                 }
             }
+        }
+    }
+
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val lastVisibleIndex = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val totalItems = state.movies.size
+            lastVisibleIndex >= totalItems - 6 && state.hasNextPage && !state.isLoadingMore
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) {
+            movieViewModel.loadMoreMovies()
         }
     }
 
@@ -72,7 +91,7 @@ fun MovieListScreen(movieViewModel: MovieViewModel = hiltViewModel()) {
                 .padding(padding)
         ) {
             when {
-                state.isLoading -> {
+                state.isLoading && state.movies.isEmpty() -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
 
@@ -83,24 +102,24 @@ fun MovieListScreen(movieViewModel: MovieViewModel = hiltViewModel()) {
                             .padding(16.dp)
                     ) {
                         Text(
-                            text = "Most Popular",
+                            text = "Most Popular Movies",
                             style = MaterialTheme.typography.headlineSmall,
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
 
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(state.movies) { movie ->
-                                MoviePosterItem(movie)
-                            }
-                        }
+                        MovieGrid(
+                            movies = state.movies,
+                            gridState = gridState,
+                            isLoadingMore = state.isLoadingMore,
+                            onRetry = movieViewModel::retry,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
 
                 state.movies.isEmpty() && !state.isLoading && state.error == null -> {
                     EmptyMoviesState(
-                        onRetry = { movieViewModel.fetchMovies() },
+                        onRetry = movieViewModel::retry,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
@@ -114,12 +133,48 @@ fun MovieListScreen(movieViewModel: MovieViewModel = hiltViewModel()) {
 
 
 @Composable
-fun MovieItem(movie: Movie) {
+fun MovieGrid(
+    movies: List<Movie>,
+    gridState: LazyGridState,
+    isLoadingMore: Boolean,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        state = gridState,
+        modifier = modifier,
+        contentPadding = PaddingValues(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(movies) { movie ->
+            MovieGridItem(movie)
+        }
+        
+        if (isLoadingMore) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MovieGridItem(movie: Movie) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
+            .height(280.dp),
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(6.dp)
     ) {
         Column {
             Image(
@@ -127,40 +182,19 @@ fun MovieItem(movie: Movie) {
                 contentDescription = movie.title,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp),
+                    .height(220.dp),
                 contentScale = ContentScale.Crop
             )
             Text(
                 text = movie.title,
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(8.dp)
-            )
-            Text(
-                text = movie.overview,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(8.dp)
+                modifier = Modifier.padding(8.dp),
+                maxLines = 2
             )
         }
     }
 }
 
-@Composable
-fun MoviePosterItem(movie: Movie) {
-    Card(
-        modifier = Modifier
-            .width(140.dp)
-            .height(220.dp),
-        shape = MaterialTheme.shapes.medium,
-        elevation = CardDefaults.cardElevation(6.dp)
-    ) {
-        Image(
-            painter = rememberAsyncImagePainter(movie.posterUrl),
-            contentDescription = movie.title,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-    }
-}
 
 @Composable
 fun EmptyMoviesState(

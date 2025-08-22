@@ -12,6 +12,10 @@
 /captures
 .externalNativeBuild
 .cxx
-local.properties
 
+# Security: Files with sensitive data
+local.properties
+gradle.properties
+
+# IDE
 .idea/
