@@ -22,6 +22,6 @@ kotlin.code.style=official
 # thereby reducing the size of the R class for that library
 android.nonTransitiveRClass=true
 
-# TMDB API Key - DO NOT COMMIT TO VERSION CONTROL
-# This should be moved to environment variables in production
-TMDB_API_KEY=3abc5f93e76fd7c3dbdfd790df363d4a
+# TMDB API Key - REPLACE WITH YOUR ACTUAL API KEY
+# Get your API key from: https://www.themoviedb.org/settings/api
+TMDB_API_KEY=your_tmdb_api_key_here

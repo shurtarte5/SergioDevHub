@@ -16,7 +16,12 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "TMDB_API_KEY", "\"${rootProject.extra["TMDB_API_KEY"]}\"")
+        val tmdbApiKey = System.getenv("TMDB_API_KEY") ?: project.findProperty("TMDB_API_KEY") as? String ?: ""
+        buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
+        
+        if (tmdbApiKey.isEmpty()) {
+            throw GradleException("TMDB_API_KEY is not set. Please set it as environment variable or in gradle.properties.")
+        }
     }
 
     buildTypes {
