@@ -3,26 +3,30 @@ package com.sergio.sergiodevhub.presentation
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.remember
-import androidx.core.view.WindowCompat
-import com.sergio.sergiodevhub.data.repository.MovieRepositoryImpl
-import com.sergio.sergiodevhub.domain.usecase.GetPopularMoviesUseCase
-import com.sergio.sergiodevhub.presentation.ui.MovieListScreen
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import com.sergio.sergiodevhub.presentation.navigation.SergioDevHubNavigation
 import com.sergio.sergiodevhub.presentation.ui.theme.SergioDevHubTheme
-import com.sergio.sergiodevhub.presentation.viewmodel.MovieViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
+        enableEdgeToEdge()
 
         setContent {
-
-
-            MovieListScreen()
+            SergioDevHubTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    SergioDevHubNavigation()
+                }
+            }
         }
-
     }
 }
