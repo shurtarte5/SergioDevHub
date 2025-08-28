@@ -16,10 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
@@ -34,19 +32,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,66 +49,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.paging.LoadState
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.LazyPagingItems
 import coil.compose.rememberAsyncImagePainter
 import com.sergio.sergiodevhub.domain.model.Movie
 import com.sergio.sergiodevhub.presentation.viewmodel.MovieViewModel
-import kotlinx.coroutines.launch
 
 @Composable
 fun MovieListScreen(
     onMovieClick: (Int) -> Unit = {},
     movieViewModel: MovieViewModel = hiltViewModel()
 ) {
-    val state by movieViewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-    val gridState = rememberLazyGridState()
+    val movies = movieViewModel.pagedMovies.collectAsLazyPagingItems()
     var searchQuery by remember { mutableStateOf("") }
 
-    // Filter movies based on search query
-    val filteredMovies = remember(state.movies, searchQuery) {
-        if (searchQuery.isBlank()) {
-            state.movies
-        } else {
-            state.movies.filter { movie ->
-                movie.title.contains(searchQuery, ignoreCase = true) ||
-                movie.originalTitle.contains(searchQuery, ignoreCase = true) ||
-                movie.releaseYear.contains(searchQuery, ignoreCase = true)
-            }
-        }
-    }
-
-    LaunchedEffect(state.error) {
-        state.error?.let { message ->
-            scope.launch {
-                val result = snackbarHostState.showSnackbar(
-                    message = message,
-                    actionLabel = "Retry"
-                )
-                if (result == SnackbarResult.ActionPerformed) {
-                    movieViewModel.retry()
-                }
-            }
-        }
-    }
-
-    val shouldLoadMore by remember {
-        derivedStateOf {
-            val lastVisibleIndex = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            val totalItems = filteredMovies.size
-            lastVisibleIndex >= totalItems - 6 && state.hasNextPage && !state.isLoadingMore && searchQuery.isBlank()
-        }
-    }
-
-    LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore) {
-            movieViewModel.loadMoreMovies()
-        }
-    }
-
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
+    Scaffold { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -142,35 +89,32 @@ fun MovieListScreen(
 
             // Content
             Box(modifier = Modifier.fillMaxSize()) {
-                when {
-                    state.isLoading && state.movies.isEmpty() -> {
+                when (movies.loadState.refresh) {
+                    is LoadState.Loading -> {
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                     }
-
-                    filteredMovies.isNotEmpty() -> {
-                        MovieGrid(
-                            movies = filteredMovies,
-                            gridState = gridState,
-                            isLoadingMore = state.isLoadingMore && searchQuery.isBlank(),
-                            onMovieClick = onMovieClick,
-                            onRetry = movieViewModel::retry,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-
-                    filteredMovies.isEmpty() && searchQuery.isNotBlank() -> {
-                        EmptySearchState(
-                            query = searchQuery,
-                            onClearSearch = { searchQuery = "" },
+                    is LoadState.Error -> {
+                        val error = movies.loadState.refresh as LoadState.Error
+                        ErrorState(
+                            message = error.error.localizedMessage ?: "Unknown error",
+                            onRetry = { movies.retry() },
                             modifier = Modifier.align(Alignment.Center)
                         )
                     }
-
-                    state.movies.isEmpty() && !state.isLoading && state.error == null -> {
-                        EmptyMoviesState(
-                            onRetry = movieViewModel::retry,
-                            modifier = Modifier.align(Alignment.Center)
-                        )
+                    else -> {
+                        if (movies.itemCount == 0) {
+                            EmptyMoviesState(
+                                onRetry = { movies.retry() },
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        } else {
+                            MoviePagingGrid(
+                                movies = movies,
+                                searchQuery = searchQuery,
+                                onMovieClick = onMovieClick,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
             }
@@ -199,10 +143,10 @@ fun MovieGrid(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(movies) { movie ->
+        items(movies.size) { index ->
             MovieGridItem(
-                movie = movie,
-                onClick = { onMovieClick(movie.id) }
+                movie = movies[index],
+                onClick = { onMovieClick(movies[index].id) }
             )
         }
         
@@ -487,6 +431,107 @@ fun EmptyMoviesState(
             modifier = Modifier.fillMaxWidth(0.6f)
         ) {
             Text("Try Again")
+        }
+    }
+}
+
+@Composable
+fun ErrorState(
+    message: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Error loading movies",
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.error,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Button(onClick = onRetry) {
+            Text("Retry")
+        }
+    }
+}
+
+@Composable
+fun MoviePagingGrid(
+    movies: LazyPagingItems<Movie>,
+    searchQuery: String,
+    onMovieClick: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = modifier,
+        contentPadding = PaddingValues(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(movies.itemCount) { index ->
+            val movie = movies[index]
+            if (movie != null) {
+                val shouldShow = if (searchQuery.isBlank()) {
+                    true
+                } else {
+                    movie.title.contains(searchQuery, ignoreCase = true) ||
+                    movie.originalTitle.contains(searchQuery, ignoreCase = true) ||
+                    movie.releaseYear.contains(searchQuery, ignoreCase = true)
+                }
+                
+                if (shouldShow) {
+                    MovieGridItem(
+                        movie = movie,
+                        onClick = { onMovieClick(movie.id) }
+                    )
+                }
+            }
+        }
+        
+        when (movies.loadState.append) {
+            is LoadState.Loading -> {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+            is LoadState.Error -> {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Button(onClick = { movies.retry() }) {
+                            Text("Retry")
+                        }
+                    }
+                }
+            }
+            else -> {}
         }
     }
 }

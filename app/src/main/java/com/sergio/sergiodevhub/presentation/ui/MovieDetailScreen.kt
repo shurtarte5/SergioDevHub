@@ -123,6 +123,7 @@ fun MovieDetailScreen(
                 state.movie != null -> {
                     MovieDetailContent(
                         movie = state.movie ?: return@Box,
+                        viewModel = viewModel,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -134,9 +135,9 @@ fun MovieDetailScreen(
 @Composable
 private fun MovieDetailContent(
     movie: Movie,
+    viewModel: MovieDetailViewModel,
     modifier: Modifier = Modifier
 ) {
-    val viewModel: MovieDetailViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     
@@ -569,42 +570,6 @@ private fun StatItem(
     }
 }
 
-@Composable
-private fun ErrorState(
-    message: String,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Error loading movie details",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.error,
-            textAlign = TextAlign.Center
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        androidx.compose.material3.Button(
-            onClick = onRetry
-        ) {
-            Text("Retry")
-        }
-    }
-}
 
 @Composable
 private fun TrailerSection(
