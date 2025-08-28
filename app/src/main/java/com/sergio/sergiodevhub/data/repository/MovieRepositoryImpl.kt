@@ -7,6 +7,7 @@ import com.sergio.sergiodevhub.data.dto.toDomain
 import com.sergio.sergiodevhub.data.network.TmdbApiService
 import com.sergio.sergiodevhub.data.paging.MoviePagingSource
 import com.sergio.sergiodevhub.domain.model.Movie
+import com.sergio.sergiodevhub.domain.model.Video
 import com.sergio.sergiodevhub.domain.repository.MovieRepository
 import com.sergio.sergiodevhub.domain.repository.MoviePage
 import kotlinx.coroutines.flow.Flow
@@ -40,6 +41,11 @@ class MovieRepositoryImpl @Inject constructor(
             ),
             pagingSourceFactory = { MoviePagingSource(api) }
         ).flow
+    }
+    
+    override suspend fun getMovieVideos(movieId: Int): List<Video> {
+        val response = api.getMovieVideos(movieId)
+        return response.results.map { it.toDomain() }
     }
 }
 
