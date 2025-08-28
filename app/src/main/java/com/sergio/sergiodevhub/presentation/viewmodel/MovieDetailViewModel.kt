@@ -2,6 +2,8 @@ package com.sergio.sergiodevhub.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.cachedIn
+import androidx.paging.filter
 import com.sergio.sergiodevhub.core.util.Resource
 import com.sergio.sergiodevhub.domain.model.Movie
 import com.sergio.sergiodevhub.domain.model.Video
@@ -10,6 +12,7 @@ import com.sergio.sergiodevhub.domain.usecase.GetMovieVideosUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -31,61 +34,22 @@ class MovieDetailViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MovieDetailUiState())
     val uiState: StateFlow<MovieDetailUiState> = _uiState
 
+    private val pagedMovies = getPopularMoviesUseCase.getPaged().cachedIn(viewModelScope)
+
     fun loadMovieDetails(movieId: Int) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            
-            // Search through all cached pages to find the movie
-            try {
-                var foundMovie: Movie? = null
-                var currentPage = 1
-                
-                // Search through multiple pages until we find the movie or run out of pages
-                while (foundMovie == null && currentPage <= 10) { // Limit to 10 pages to avoid infinite loop
-                    when (val result = getPopularMoviesUseCase.getPage(currentPage)) {
-                        is Resource.Success -> {
-                            foundMovie = result.data.movies.find { it.id == movieId }
-                            if (foundMovie == null && result.data.movies.isEmpty()) {
-                                // No more pages to search
-                                break
-                            }
-                            currentPage++
-                        }
-                        is Resource.Error -> {
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                error = result.message ?: "Unknown error occurred"
-                            )
-                            return@launch
-                        }
-                        else -> {
-                            break
-                        }
-                    }
-                }
-                
-                if (foundMovie != null) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        movie = foundMovie,
-                        error = null
-                    )
-                    
-                    // Load trailers after successfully loading movie
-                    loadMovieTrailers(movieId)
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "Movie not found"
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.localizedMessage ?: "Unknown error occurred"
-                )
-            }
-        }
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            error = "Please pass movie object directly using loadMovieDetailsDirectly()"
+        )
+    }
+    
+    fun loadMovieDetailsDirectly(movie: Movie) {
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            movie = movie,
+            error = null
+        )
+        loadMovieTrailers(movie.id)
     }
     
     private fun loadMovieTrailers(movieId: Int) {

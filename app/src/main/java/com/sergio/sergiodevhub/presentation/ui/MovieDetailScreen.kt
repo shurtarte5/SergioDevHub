@@ -59,6 +59,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.sergio.sergiodevhub.domain.model.Movie
 import com.sergio.sergiodevhub.domain.model.Video
 import com.sergio.sergiodevhub.presentation.viewmodel.MovieDetailViewModel
+import com.sergio.sergiodevhub.presentation.ui.components.GenericErrorState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,7 +114,7 @@ fun MovieDetailScreen(
                 }
                 
                 state.error != null -> {
-                    ErrorState(
+                    GenericErrorState(
                         message = state.error ?: "Unknown error",
                         onRetry = { viewModel.loadMovieDetails(movieId) },
                         modifier = Modifier.align(Alignment.Center)
