@@ -15,7 +15,6 @@
 
 # Security: Files with sensitive data
 local.properties
-gradle.properties
 
 # IDE
 .idea/
