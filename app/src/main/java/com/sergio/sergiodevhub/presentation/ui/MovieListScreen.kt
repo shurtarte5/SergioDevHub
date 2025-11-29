@@ -2,7 +2,6 @@ package com.sergio.sergiodevhub.presentation.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,30 +14,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,22 +38,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.paging.LoadState
-import androidx.paging.compose.collectAsLazyPagingItems
-import androidx.paging.compose.LazyPagingItems
 import coil.compose.rememberAsyncImagePainter
 import com.sergio.sergiodevhub.domain.model.Movie
+import com.sergio.sergiodevhub.presentation.viewmodel.MovieUiState
 import com.sergio.sergiodevhub.presentation.viewmodel.MovieViewModel
 
 @Composable
 fun MovieListScreen(
-    onMovieClick: (Int) -> Unit = {},
     movieViewModel: MovieViewModel = hiltViewModel()
 ) {
-    val movies = movieViewModel.pagedMovies.collectAsLazyPagingItems()
-    var searchQuery by remember { mutableStateOf("") }
+    val uiState by movieViewModel.uiState.collectAsState()
 
     Scaffold { padding ->
         Column(
@@ -73,121 +61,70 @@ fun MovieListScreen(
         ) {
             // Header
             Text(
-                text = "Most Popular Movies",
-                style = MaterialTheme.typography.headlineSmall,
+                text = "Películas Populares",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // Search Bar
-            SearchBar(
-                query = searchQuery,
-                onQueryChange = { searchQuery = it },
-                onClearClick = { searchQuery = "" }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Content
-            Box(modifier = Modifier.fillMaxSize()) {
-                when (movies.loadState.refresh) {
-                    is LoadState.Loading -> {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                    }
-                    is LoadState.Error -> {
-                        val error = movies.loadState.refresh as LoadState.Error
-                        ErrorState(
-                            message = error.error.localizedMessage ?: "Unknown error",
-                            onRetry = { movies.retry() },
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
-                    else -> {
-                        if (movies.itemCount == 0) {
-                            EmptyMoviesState(
-                                onRetry = { movies.retry() },
-                                modifier = Modifier.align(Alignment.Center)
-                            )
-                        } else {
-                            MoviePagingGrid(
-                                movies = movies,
-                                searchQuery = searchQuery,
-                                onMovieClick = onMovieClick,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
+            // Content based on state
+            when (uiState) {
+                is MovieUiState.Loading -> {
+                    LoadingState()
+                }
+                is MovieUiState.Success -> {
+                    val movies = (uiState as MovieUiState.Success).movies
+                    MovieList(movies = movies)
+                }
+                is MovieUiState.Error -> {
+                    val errorMessage = (uiState as MovieUiState.Error).message
+                    ErrorState(
+                        message = errorMessage,
+                        onRetry = { movieViewModel.loadMovies() }
+                    )
                 }
             }
         }
     }
 }
 
-
-
-
-
 @Composable
-fun MovieGrid(
-    movies: List<Movie>,
-    gridState: LazyGridState,
-    isLoadingMore: Boolean,
-    onMovieClick: (Int) -> Unit,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        state = gridState,
-        modifier = modifier,
-        contentPadding = PaddingValues(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+fun LoadingState() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        items(movies.size) { index ->
-            MovieGridItem(
-                movie = movies[index],
-                onClick = { onMovieClick(movies[index].id) }
-            )
-        }
-        
-        if (isLoadingMore) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+fun MovieList(movies: List<Movie>) {
+    LazyColumn(
+        contentPadding = PaddingValues(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(movies) { movie ->
+            MovieItem(movie = movie)
         }
     }
 }
 
 @Composable
-fun MovieGridItem(
-    movie: Movie,
-    onClick: () -> Unit = {}
-) {
+fun MovieItem(movie: Movie) {
     Card(
-        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(340.dp)
-            .padding(4.dp),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+            .height(150.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.fillMaxSize()) {
             // Poster Image
             Box(
                 modifier = Modifier
+                    .width(100.dp)
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(16.dp))
             ) {
                 if (movie.posterUrl.isNotEmpty()) {
                     Image(
@@ -200,237 +137,67 @@ fun MovieGridItem(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFF2A2A2A),
-                                        Color(0xFF1A1A1A)
-                                    )
-                                )
-                            ),
+                            .background(Color.Gray),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Star,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            tint = Color.White.copy(alpha = 0.3f)
                         )
                     }
                 }
-                
-                // Gradient overlay for better text readability
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.7f)
-                                ),
-                                startY = 500f
-                            )
-                        )
-                )
-                
-                // Rating badge with gold gradient
-                if (movie.voteAverage > 0) {
-                    Box(
-                        modifier = Modifier
-                            .padding(12.dp)
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(
-                                        Color(0xFFFFD700),
-                                        Color(0xFFFFB300)
-                                    )
-                                ),
-                                RoundedCornerShape(12.dp)
-                            )
-                            .align(Alignment.TopEnd)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                modifier = Modifier.size(12.dp),
-                                tint = Color.Black
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = movie.formattedRating,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.Black,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-                
-                
-                // Premium purple accent border
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .border(
-                            2.dp,
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    Color(0xFF7B2CBF).copy(alpha = 0.3f),
-                                    Color(0xFFE0AAFF).copy(alpha = 0.3f)
-                                )
-                            ),
-                            RoundedCornerShape(16.dp)
-                        )
-                )
             }
-        }
-    }
-}
 
+            // Movie Info
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Title
+                Text(
+                    text = movie.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-@Composable
-fun SearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onClearClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = modifier.fillMaxWidth(),
-        placeholder = {
-            Text(
-                text = "Search movies...",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = "Search",
-                tint = MaterialTheme.colorScheme.primary
-            )
-        },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = onClearClick) {
-                    Icon(
-                        imageVector = Icons.Default.Clear,
-                        contentDescription = "Clear search",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                // Release Date and Rating
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Release Date
+                    Text(
+                        text = movie.releaseYear,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    // Rating
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color(0xFFFFD700)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = movie.formattedRating,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
-        },
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surface,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-            unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
-            cursorColor = MaterialTheme.colorScheme.primary
-        ),
-        shape = RoundedCornerShape(16.dp),
-        singleLine = true
-    )
-}
-
-@Composable
-fun EmptySearchState(
-    query: String,
-    onClearSearch: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.Search,
-            contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Text(
-            text = "No results found",
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = "We couldn't find any movies for \"$query\"",
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Button(
-            onClick = onClearSearch,
-            modifier = Modifier.fillMaxWidth(0.6f)
-        ) {
-            Text("Clear Search")
-        }
-    }
-}
-
-@Composable
-fun EmptyMoviesState(
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.Search,
-            contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Text(
-            text = "No movies found",
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = "It looks like there are no movies to display right now. Please try again.",
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Button(
-            onClick = onRetry,
-            modifier = Modifier.fillMaxWidth(0.6f)
-        ) {
-            Text("Try Again")
         }
     }
 }
@@ -438,108 +205,35 @@ fun EmptyMoviesState(
 @Composable
 fun ErrorState(
     message: String,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier
+    onRetry: () -> Unit
 ) {
     Column(
-        modifier = modifier.padding(32.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Error loading movies",
+            text = "Error",
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center
         )
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         Button(onClick = onRetry) {
-            Text("Retry")
+            Text("Reintentar")
         }
     }
 }
-
-@Composable
-fun MoviePagingGrid(
-    movies: LazyPagingItems<Movie>,
-    searchQuery: String,
-    onMovieClick: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        modifier = modifier,
-        contentPadding = PaddingValues(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(movies.itemCount) { index ->
-            val movie = movies[index]
-            if (movie != null) {
-                val shouldShow = if (searchQuery.isBlank()) {
-                    true
-                } else {
-                    movie.title.contains(searchQuery, ignoreCase = true) ||
-                    movie.originalTitle.contains(searchQuery, ignoreCase = true) ||
-                    movie.releaseYear.contains(searchQuery, ignoreCase = true)
-                }
-                
-                if (shouldShow) {
-                    MovieGridItem(
-                        movie = movie,
-                        onClick = { onMovieClick(movie.id) }
-                    )
-                }
-            }
-        }
-        
-        when (movies.loadState.append) {
-            is LoadState.Loading -> {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-            }
-            is LoadState.Error -> {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Button(onClick = { movies.retry() }) {
-                            Text("Retry")
-                        }
-                    }
-                }
-            }
-            else -> {}
-        }
-    }
-}
-
-
-
-
-
-
-
-
